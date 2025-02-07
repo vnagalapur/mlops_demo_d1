@@ -1,0 +1,55 @@
+name: CI pipeline day 1
+
+on:
+  push:
+    branches:
+      - main  # Trigger the workflow on push to the main branch
+  pull_request:
+    branches:
+      - main  # Trigger the workflow on pull request to the main branch
+
+env:
+  REPOSITORY_NAME: day1-demo  # Name of the Docker repository
+  IMAGE_TAG: latest  # Tag for the Docker image
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # Use the latest Ubuntu runner
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3  # Checkout the repository code
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v4  # Set up Python environment
+        with:
+          python-version: '3.10'  # Specify the Python version to use
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip  # Upgrade pip
+          pip install -r requirements.txt  # Install dependencies from requirements.txt
+
+      - name: Login to Github Registry
+        uses: docker/login-action@v2  # Log in to GitHub Container Registry
+        with:
+          registry: ghcr.io  # GitHub Container Registry URL
+          username: ${{ github.actor }}  # GitHub username
+          password: ${{ secrets.GITHUB_TOKEN }}  # GitHub token for authentication
+
+      - name: Build the docker image
+        run: |
+          echo "Build Phase"
+          IMAGE_URI=ghcr.io/${{ github.repository_owner }}/${{ env.REPOSITORY_NAME }}:${{ env.IMAGE_TAG }}  # Construct the image URI
+          echo "Build docker image"
+          docker build -t $IMAGE_URI .  # Build the Docker image
+          echo "IMAGE_URI = $IMAGE_URI" >> $GITHUB_ENV  # Save the image URI to GitHub environment variables
+      
+      - name: Prepare Artifact Metadata
+        run: echo "IMAGE_URL=${{env.IMAGE_URI}}" > artifact_metadata.json  # Create a metadata file with the image URL
+
+      - name: Upload Artifact Metadata
+        uses: actions/upload-artifact@v4  # Upload the metadata file as an artifact
+        with:
+          name: artifact_metadata  # Name of the artifact
+          path: artifact_metadata.json  # Path to the metadata file
